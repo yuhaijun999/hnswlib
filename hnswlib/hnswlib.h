@@ -1,4 +1,5 @@
 #pragma once
+#include "hnswlibhook.h"
 
 // https://github.com/nmslib/hnswlib/pull/508
 // This allows others to provide their own error stream (e.g. RcppHNSW)

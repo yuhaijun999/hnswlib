@@ -344,11 +344,13 @@ class InnerProductSpace : public SpaceInterface<float> {
     size_t data_size_;
     size_t dim_;
 
- public:
-    InnerProductSpace(size_t dim) {
+    struct Default {};
+    struct Hook {};
+
+    void DoInnerProductSpace(size_t dim, Default) {
         fstdistfunc_ = InnerProductDistance;
 #if defined(USE_AVX) || defined(USE_SSE) || defined(USE_AVX512)
-    #if defined(USE_AVX512)
+#if defined(USE_AVX512)
         if (AVX512Capable()) {
             InnerProductSIMD16Ext = InnerProductSIMD16ExtAVX512;
             InnerProductDistanceSIMD16Ext = InnerProductDistanceSIMD16ExtAVX512;
@@ -356,18 +358,18 @@ class InnerProductSpace : public SpaceInterface<float> {
             InnerProductSIMD16Ext = InnerProductSIMD16ExtAVX;
             InnerProductDistanceSIMD16Ext = InnerProductDistanceSIMD16ExtAVX;
         }
-    #elif defined(USE_AVX)
+#elif defined(USE_AVX)
         if (AVXCapable()) {
             InnerProductSIMD16Ext = InnerProductSIMD16ExtAVX;
             InnerProductDistanceSIMD16Ext = InnerProductDistanceSIMD16ExtAVX;
         }
-    #endif
-    #if defined(USE_AVX)
+#endif
+#if defined(USE_AVX)
         if (AVXCapable()) {
             InnerProductSIMD4Ext = InnerProductSIMD4ExtAVX;
             InnerProductDistanceSIMD4Ext = InnerProductDistanceSIMD4ExtAVX;
         }
-    #endif
+#endif
 
         if (dim % 16 == 0)
             fstdistfunc_ = InnerProductDistanceSIMD16Ext;
@@ -380,6 +382,21 @@ class InnerProductSpace : public SpaceInterface<float> {
 #endif
         dim_ = dim;
         data_size_ = dim * sizeof(float);
+  }
+
+    void DoInnerProductSpace(size_t dim, Hook) {
+        fstdistfunc_ = get_fvec_inner_product_distance_hook_internal();
+        dim_ = dim;
+        data_size_ = dim * sizeof(float);
+    }
+
+ public:
+    explicit InnerProductSpace(size_t dim) {
+        if (nullptr != get_fvec_inner_product_hook()) {
+            DoInnerProductSpace(dim, Hook{});
+        } else {
+            DoInnerProductSpace(dim, Default{});
+        }
     }
 
     size_t get_data_size() {
